@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+artifacts/
+.superpowers/
+docs/IMPLEMENTATION_PLAN.md
+.pytest_cache/
+.env
+.env.*
+*.npy
+*.npz
+!examples/*.npy

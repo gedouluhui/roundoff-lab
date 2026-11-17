@@ -1,0 +1,46 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.10'
+            numpy: 'numpy==1.24.4'
+          - os: ubuntu-latest
+            python: '3.12'
+            numpy: 'numpy>=2,<3'
+          - os: windows-latest
+            python: '3.12'
+            numpy: 'numpy>=2,<3'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install declared dependency and package
+        run: python -m pip install "${{ matrix.numpy }}" .
+      - name: Test numerical, CLI and report contracts
+        run: python -m unittest discover -s tests -v
+      - name: Run both synthetic scenarios
+        run: |
+          python -m roundofflab demo --out artifacts/quiet
+          python -m roundofflab demo --out artifacts/active --scenario active-outlier
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install build
+          python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.os }}-${{ matrix.python }}
+          path: dist/*

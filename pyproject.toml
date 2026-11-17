@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roundoff-lab"
+version = "0.1.0"
+description = "Offline weight-quantization diagnostics: compare matrix error with actual linear-layer output error."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "gedouluhui"}]
+dependencies = ["numpy>=1.24,<3"]
+keywords = ["quantization", "machine-learning", "numerical-analysis", "diagnostics"]
+classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Topic :: Scientific/Engineering :: Artificial Intelligence"]
+
+[project.urls]
+Repository = "https://github.com/gedouluhui/roundoff-lab"
+Demo = "https://gedouluhui.github.io/roundoff-lab/"
+Issues = "https://github.com/gedouluhui/roundoff-lab/issues"
+
+[project.scripts]
+roundofflab = "roundofflab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
