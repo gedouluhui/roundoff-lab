@@ -55,7 +55,7 @@ class MutationTests(unittest.TestCase):
                             'test_analysis.py', 'test_array_hashes_and_input_immutability')
 
     def test_missing_empty_file_boundary_is_caught(self):
-        self.check_mutation('io.py', 'except EOFError as exc:', 'except IndexError as exc:',
+        self.check_mutation('io.py', 'except (EOFError, ValueError) as exc:', 'except IndexError as exc:',
                             'test_cli.py', 'test_empty_npy_has_actionable_error_without_traceback')
 
     def test_ignored_tail_group_is_caught(self):

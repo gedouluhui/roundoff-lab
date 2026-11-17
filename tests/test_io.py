@@ -4,10 +4,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from roundofflab.io import write_artifacts
+from roundofflab.io import load_npy, write_artifacts
 
 
 class OutputTests(unittest.TestCase):
+    def test_empty_npy_normalizes_numpy_124_value_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp) / 'empty.npy'; empty.write_bytes(b'')
+            # Actual NumPy 1.24 behavior observed in the minimum-version CI job.
+            with patch('roundofflab.io.np.load', side_effect=ValueError('Cannot load file containing pickled data when allow_pickle=False')):
+                with self.assertRaisesRegex(ValueError, 'empty or truncated'):
+                    load_npy(empty)
+
     def test_failed_force_restores_entire_previous_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)

@@ -18,8 +18,11 @@ def load_npy(path: Path) -> np.ndarray:
         raise ValueError("inputs must be .npy files; export one float32/64 matrix per file")
     try:
         result = np.load(path, mmap_mode="r", allow_pickle=False, max_header_size=10_000)
-    except EOFError as exc:
-        raise ValueError("empty or truncated .npy file; export the matrix again") from exc
+    except (EOFError, ValueError) as exc:
+        # NumPy 1.24 uses ValueError for an empty file; newer versions use EOFError.
+        if isinstance(exc, EOFError) or path.stat().st_size == 0:
+            raise ValueError("empty or truncated .npy file; export the matrix again") from exc
+        raise
     if not isinstance(result, np.ndarray):
         if hasattr(result, "close"):
             result.close()
