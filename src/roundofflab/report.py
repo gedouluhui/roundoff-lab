@@ -2,6 +2,7 @@
 from __future__ import annotations
 import html
 import json
+from . import study_view
 
 
 def _number(value):
@@ -9,8 +10,14 @@ def _number(value):
 
 
 def render_report(report: dict) -> str:
-    """Render an analyze() result. Raw matrices are never embedded."""
-    payload = json.dumps(report, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+    """Render a schema-1 analysis or schema-2 study; never embed raw matrices."""
+    bundle = report
+    is_study = bundle.get('report_type') == 'validation_study'
+    study_summary = study_view.summary(bundle) if is_study else ''
+    study_detail = study_view.DETAIL if is_study else ''
+    if is_study:
+        report = bundle['cohorts']['discovery']
+    payload = json.dumps(bundle, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
     for char, escape in (("&", "\\u0026"), ("<", "\\u003c"), (">", "\\u003e"),
                          ("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
         payload = payload.replace(char, escape)
@@ -28,14 +35,14 @@ def render_report(report: dict) -> str:
     return f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><title>{title} · RoundoffLab</title>
-<style>{STYLE}</style></head><body>
+<style>{STYLE}{study_view.STYLE if is_study else ''}</style></head><body>
 <a class="skip" href="#comparison">Skip to comparison</a>
 <header><a class="brand" href="#"><span class="mark" aria-hidden="true">R<span>·</span></span>Roundoff<span>Lab</span></a>
 <span class="header-note">WEIGHT-ONLY QUANTIZATION / LOCAL EVIDENCE</span><button id="download-json" type="button">Download JSON <span aria-hidden="true">↓</span></button></header>
-<main><section class="intro"><div><p class="eyebrow">A matrix is not its output.</p><h1>{title}</h1>
+<main>{study_summary}<section class="intro"><div><p class="eyebrow">A matrix is not its output.</p><h1>{title}</h1>
 <p class="lede">Smaller weight error does not always mean smaller output error. Compare both before choosing a quantization policy.</p>
-<div class="tags"><span>{html.escape(dimensions)}</span><span>float64 reference</span><span>{sample}</span></div>
-<p class="boundary">Single linear layer · symmetric fake quantization · no task-accuracy or performance claims</p></div>
+<div class="tags"><span id="shape-label">{html.escape(dimensions)}</span><span>float64 reference</span><span id="sample-label">{sample}</span></div>
+<p class="boundary">Single linear layer · {'external candidates and/or simulations' if is_study else 'symmetric fake quantization'} · no task-accuracy or performance claims</p></div>
 <div class="rank-card"><div class="panel-label">Two rankings. Same weights.</div><p class="muted">Each line connects one policy's rank. Lower error ranks first.</p>
 <div id="rank-chart" aria-label="Weight and output error ranking comparison"></div><p id="reversal-note" class="reversal-note" aria-live="polite"></p></div></section>
 <section id="comparison" class="panel"><div class="section-head"><div><p class="eyebrow">Policy comparison</p><h2>The numbers behind the rankings</h2></div>
@@ -47,8 +54,8 @@ def render_report(report: dict) -> str:
 <div class="detail-grid"><article class="panel map-panel"><div class="section-head"><div><h3>Weight error map</h3><p class="muted">Mean absolute error per tile. Select a tile to inspect its bounds.</p></div></div>
 <div class="tile-controls"><label>Output tile <select id="row-select"></select></label><label>Input tile <select id="col-select"></select></label></div>
 <div id="heatmap" class="heatmap" role="group" aria-label="Weight error tiles; use arrow keys to move between tiles"></div><div class="legend"><span>Zero</span><span class="ramp"></span><span id="heat-max">—</span></div><p id="tile-detail" class="footnote" aria-live="polite">Rows = output channels. Columns = input channels.</p></article>
-<article class="panel"><h3>Output error by channel</h3><p class="muted">MSE on the supplied inputs. Bar scales update with the selected policy.</p><div id="channels" class="channels" aria-label="Per-channel output errors"></div></article></div></section>
-<section class="method panel"><div><p class="eyebrow">What this report establishes</p><h2>Evidence, with boundaries.</h2><ul>{warnings}</ul></div><div class="formula"><span>Reference</span><code>Y = XWᵀ</code><span>Quantized comparison</span><code>Ŷ = XQ(W)ᵀ</code><p>No activations are quantized. Percentile clipping is computed from weights, not from calibration inputs.</p></div></section>
+<article class="panel"><h3>Output error by channel</h3><p class="muted">MSE on the supplied inputs. Bar scales update with the selected policy.</p><div id="channels" class="channels" aria-label="Per-channel output errors"></div></article></div>{study_detail}</section>
+<section class="method panel"><div><p class="eyebrow">What this report establishes</p><h2>Evidence, with boundaries.</h2><ul>{warnings}</ul></div><div class="formula"><span>Reference</span><code>Y = XWᵀ</code><span>Quantized comparison</span><code>{'Ŷ = XWqᵀ' if is_study else 'Ŷ = XQ(W)ᵀ'}</code><p>No activations are quantized. {'External Wq is used as supplied, without re-quantization.' if is_study else 'Percentile clipping is computed from weights, not from calibration inputs.'}</p></div></section>
 <details class="provenance"><summary>Numerical policy and input fingerprints</summary><pre id="provenance"></pre><p>Fingerprints include dtype, shape and C-order values. They do not certify provenance or prevent sensitive information in summary statistics.</p></details>
 <noscript><p class="notice">JavaScript is disabled. The complete comparison table and scope notes remain readable; interactive inspection requires JavaScript.</p></noscript>
 </main><footer><span>RoundoffLab <span class="muted">/ offline by design</span></span><a href="https://github.com/gedouluhui/roundoff-lab">Source, method & reproducible examples ↗</a></footer>
@@ -66,20 +73,23 @@ STYLE = r'''
 
 SCRIPT = r'''
 'use strict';
-const report = JSON.parse(document.getElementById('report-data').textContent);
-const configs = report.configurations;
+const bundle = JSON.parse(document.getElementById('report-data').textContent);
+const isStudy = bundle.report_type === 'validation_study';
+let report = isStudy ? bundle.cohorts.discovery : bundle;
+let configs = report.configurations;
 const $ = id => document.getElementById(id);
 const num = v => v === null ? 'undefined' : v === 0 ? '0' : Math.abs(v) < .001 || Math.abs(v) >= 1e5 ? v.toExponential(3) : Number(v.toPrecision(5)).toString();
 const el = (tag, text, cls) => { const n=document.createElement(tag); if(text!==undefined)n.textContent=text; if(cls)n.className=cls; return n; };
 const colors=['#246889','#b74b22','#476b45','#775b9a','#996021','#426e79'];
-let selected=configs[0].id;
+let selected=isStudy?bundle.selection.candidate_id:configs[0].id;
 configs.forEach(c=>{const option=el('option',c.id);option.value=c.id;$('config-select').append(option);});
+$('config-select').value=selected;
 function renderTable(){
  const key=$('sort-select').value;
  const ordered=[...configs].sort((a,b)=> key==='id' ? a.id.localeCompare(b.id) : a.metrics[key]-b.metrics[key] || a.id.localeCompare(b.id));
  $('comparison-body').replaceChildren();
  ordered.forEach(c=>{const row=el('tr');if(c.id===selected)row.className='selected';const th=el('th',c.id);th.scope='row';row.append(th);
- ['weight_mse','output_mse','relative_output_l2','scale_count','clipped_count'].forEach(k=>row.append(el('td',num(c.metrics[k]))));$('comparison-body').append(row);});
+ ['weight_mse','output_mse','relative_output_l2','scale_count','clipped_count'].forEach(k=>row.append(el('td',c.metrics[k]===null&&(k==='scale_count'||k==='clipped_count')?'unknown':num(c.metrics[k]))));$('comparison-body').append(row);});
 }
 function drawRanks(){
  const ns='http://www.w3.org/2000/svg', svg=document.createElementNS(ns,'svg');
@@ -98,7 +108,7 @@ function drawRanks(){
 }
 function inspect(){
  selected=$('config-select').value;const c=configs.find(v=>v.id===selected),m=c.metrics;
- $('weight-mse').textContent=num(m.weight_mse);$('output-mse').textContent=num(m.output_mse);$('relative-l2').textContent=num(m.relative_output_l2);$('clipped').textContent=m.clipped_count.toLocaleString('en-US');
+ $('weight-mse').textContent=num(m.weight_mse);$('output-mse').textContent=num(m.output_mse);$('relative-l2').textContent=num(m.relative_output_l2);$('clipped').textContent=m.clipped_count===null?'unknown':m.clipped_count.toLocaleString('en-US');
  const h=c.heatmap,max=Math.max(0,...h.values.flat());$('heatmap').replaceChildren();$('heatmap').style.gridTemplateColumns=`repeat(${h.col_bounds.length}, minmax(0, 1fr))`;
  h.values.forEach((row,r)=>row.forEach((v,k)=>{const b=el('button',undefined,'tile');b.type='button';b.tabIndex=r===0&&k===0?0:-1;const a=h.row_bounds[r],d=h.col_bounds[k];const text=`Output channels [${a[0]}, ${a[1]}), input channels [${d[0]}, ${d[1]}): mean absolute error ${num(v)}`;
  const t=max?v/max:0;const start=[237,243,248],end=[183,75,34];b.style.backgroundColor=`rgb(${start.map((n,i)=>Math.round(n+(end[i]-n)*t)).join(',')})`;b.title=text;b.setAttribute('aria-label',text);b.addEventListener('click',()=>chooseTile(r,k,false));b.addEventListener('keydown',event=>{const steps={ArrowRight:[0,1],ArrowLeft:[0,-1],ArrowDown:[1,0],ArrowUp:[-1,0]};if(steps[event.key]){event.preventDefault();const [dr,dc]=steps[event.key];chooseTile(Math.max(0,Math.min(h.row_bounds.length-1,r+dr)),Math.max(0,Math.min(h.col_bounds.length-1,k+dc)),true);}});$('heatmap').append(b);}));
@@ -107,10 +117,21 @@ function inspect(){
  $('heat-max').textContent=num(max);chooseTile(0,0,false);
  const largest=Math.max(0,...c.channels.map(v=>v.output_mse));$('channels').replaceChildren();
  c.channels.forEach(v=>{const row=el('div',undefined,'channel');row.append(el('span',`O${String(v.index).padStart(2,'0')}`));const track=el('div',undefined,'track'),bar=el('div',undefined,'bar');bar.style.width=`${largest?(v.output_mse/largest)*100:0}%`;track.append(bar);row.append(track,el('span',num(v.output_mse),'channel-value'));row.title=`Channel ${v.index}; output MSE ${num(v.output_mse)}; reference RMS ${num(v.reference_rms)}`;$('channels').append(row);});
+ $('provenance').textContent=JSON.stringify(report.provenance,null,2);
+ $('sample-label').textContent=report.sample_label;
+ const shapes=report.shapes;$('shape-label').textContent=`W ${shapes.weights[0]} × ${shapes.weights[1]} · X ${shapes.inputs[0]} × ${shapes.inputs[1]}`;
+ if(isStudy){
+  $('propagated-mse').textContent=num(m.propagated_mse);
+  $('rounding-mask').textContent=c.rounding_mask_detected?'Forward rounding masks a nonzero propagated error. Observed MSE is zero; do not read it as zero weight-error effect.':'Both measurements are reported separately. No zero-observed/nonzero-propagated masking detected for this candidate on this cohort.';
+  $('candidate-origin').textContent=`Origin: ${c.origin==='external_dequantized'?'External, user-declared; scale and clipping counts unknown':'RoundoffLab simulation'}. Candidate SHA256: ${c.candidate_sha256}`;
+  $('worst-samples').replaceChildren();
+  if(!c.worst_samples.length)$('worst-samples').append(el('p','No nonzero propagated sample errors.','footnote'));
+  c.worst_samples.forEach(v=>$('worst-samples').append(el('div',`Sample ${v.sample_index} · output channel ${v.output_channel} · max propagated absolute error ${num(v.max_abs_error)}`,'witness')));
+ }
  renderTable();drawRanks();
 }
 $('config-select').addEventListener('change',inspect);$('sort-select').addEventListener('change',renderTable);
-$('download-json').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'});const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='roundoff-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-$('provenance').textContent=JSON.stringify(report.provenance,null,2);
+$('download-json').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(bundle,null,2)+'\n'],{type:'application/json'});const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='roundoff-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+if(isStudy)$('cohort-select').addEventListener('change',()=>{report=bundle.cohorts[$('cohort-select').value];configs=report.configurations;inspect();});
 inspect();
 '''

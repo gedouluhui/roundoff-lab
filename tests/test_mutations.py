@@ -36,6 +36,21 @@ class MutationTests(unittest.TestCase):
                           'a crash/import error is not a named assertion catching the mutation')
             self.assertNotIn('FAILED (errors=', result.stderr)
 
+    def test_validation_based_reselection_is_caught(self):
+        self.check_mutation('study.py', "discovery_entries = cohorts['discovery']['configurations']",
+                            "discovery_entries = cohorts['validation']['configurations']",
+                            'test_study.py', 'test_discovery_selects_once_validation_cannot_reselect')
+
+    def test_conflated_forward_and_propagated_errors_are_caught(self):
+        self.check_mutation('study_metrics.py', 'propagated = _row_products(x, difference)', 'propagated = observed',
+                            'test_study_metrics.py', 'test_forward_rounding_mask_does_not_hide_propagation')
+
+    def test_requantized_external_candidate_is_caught(self):
+        self.check_mutation('study.py',
+                            'q = quantized.weights if quantized is not None else np.asarray(external, dtype=np.float64)',
+                            'q = quantized.weights if quantized is not None else quantize(external, Config()).weights',
+                            'test_study.py', 'test_external_candidate_is_not_requantized_and_unknown_counts_are_null')
+
     def test_truncation_instead_of_even_rounding_is_caught(self):
         self.check_mutation('quantize.py', 'codes = np.rint(', 'codes = np.trunc(',
                             'test_quantize.py', 'test_narrow_range_ties_to_even')

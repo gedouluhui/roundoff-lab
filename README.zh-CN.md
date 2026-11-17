@@ -6,6 +6,33 @@
 
 只需要 CPU 和 NumPy，不需要 GPU、模型下载、API 密钥、服务器或模型格式转换。它是单层诊断工具，不是部署量化器，不宣称加速、节约真实显存或改善模型准确率。
 
+## 本分支新增：0.2.0a1 候选验证工作流
+
+这是待统一验收／发布的升级候选，顶部在线链接仍是已发布v0.1演示。旧`analyze`／`demo`和schema-1数据继续兼容。
+
+新增`study`直接接受外部工具**已经反量化**的浮点权重文件，不二次量化，不从名称猜测GPTQ/AWQ身份、位数、尺度数或裁剪数量。W与候选必须采用同一个`[输出通道,输入通道]`坐标顺序；同形状不证明语义对齐。
+
+```sh
+python -m pip install .
+python examples/build_study.py --out candidate-study
+```
+
+打开`candidate-study/index.html`。例子先在discovery输入选定候选，再检查validation输入，切换报告视图不改既定选择。数据与两份导出候选均由RoundoffLab合成产生，不冒充第三方模型结果。
+
+自己的候选清单`candidates.json`形如`{"a":"exports/a.npy","b":"exports/b.npy"}`；相对路径从清单目录解析：
+
+```sh
+python -m roundofflab study --weights weights.npy --discovery discovery.npy --validation validation.npy --candidates candidates.json --out result
+```
+
+默认依据discovery的`propagated_mse`选择；`--selected external:a`可保持此前已选定的候选。validation不参与选择；不同文件／指纹不证明独立采样，反复看validation再改参数属于数据复用。数值完全相同的两组输入会另给复用警告，没警告也不是无泄漏证明。
+
+新报告分别列出“两次float64前向相减的观测误差”和“直接计算`X @ (Wq-W).T`的传播误差”。例如`W=[[1,.1]]`、`Wq=[[1,0]]`、`X=[[1e16,1]]`，前者可能为零，后者MSE仍为0.01。工具不再将这种舍入掩蔽视作没有影响，但两者都不代表任意精度真值或部署内核表现。
+
+新工作流按固定逐行矩阵向量运算和固定顺序累积，`--batch-rows`只改变临时输出批量，不改变归约路径；这是以吞吐换取批次选型稳定性的参考实现，不宣称更快。最坏样本给出零基行／通道坐标，不嵌入原始激活。
+
+若已经安装PyTorch，运行`python examples/pytorch_export.py --out torch-example`可验证真实`dequantize()`导出，并对照故意漏掉zero point的错误。样本仍为合成数据，不是预训练模型跑分。PyTorch不是运行依赖，不会自动安装。完整契约见[候选验证说明](docs/VALIDATION_STUDY.md)。
+
 ## 安装与演示
 
 建议先激活自己的 Python 3.10+ 虚拟环境：

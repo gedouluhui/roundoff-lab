@@ -59,6 +59,26 @@ def load_configs(path: Path) -> list[Config]:
     return configs
 
 
+def load_candidates(path: Path) -> tuple[dict[str, np.ndarray], tuple[Path, ...]]:
+    """Resolve dequantized candidate paths relative to their manifest, never cwd."""
+    if path.stat().st_size > 1_000_000:
+        raise ValueError("candidate manifest exceeds 1 MB")
+    data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object,
+                      parse_constant=_invalid_constant)
+    if not isinstance(data, dict) or not 1 <= len(data) <= 24:
+        raise ValueError("candidate manifest must be an object with 1 to 24 named paths")
+    arrays, paths = {}, [path]
+    for name, filename in data.items():
+        if not isinstance(filename, str) or not filename:
+            raise ValueError("each candidate path must be a nonempty string")
+        candidate = Path(filename)
+        if not candidate.is_absolute():
+            candidate = path.parent / candidate
+        arrays[name] = load_npy(candidate)
+        paths.append(candidate)
+    return arrays, tuple(paths)
+
+
 def npy_bytes(value: np.ndarray) -> bytes:
     output = io.BytesIO()
     np.save(output, value, allow_pickle=False)

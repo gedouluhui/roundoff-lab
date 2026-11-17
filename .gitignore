@@ -7,6 +7,7 @@ dist/
 artifacts/
 .superpowers/
 docs/IMPLEMENTATION_PLAN.md
+docs/study/candidates.json
 .pytest_cache/
 .env
 .env.*
