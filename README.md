@@ -13,7 +13,7 @@ Compare weight-only quantization policies on your own matrices, inspect which ou
 
 ## New: discovery-frozen candidate validation (0.2 alpha)
 
-This branch contains **0.2.0a1**, a local candidate build. The hosted link above is the released v0.1 demo until the coordinating maintainer publishes this upgrade. Existing `analyze`/`demo` commands and schema-1 JSON remain supported.
+Version **0.2.0a1** adds discovery-frozen candidate validation. The hosted link above remains the v0.1 demo; download the v0.2.0a1 pre-release or install this checkout. Existing `analyze`/`demo` commands and schema-1 JSON remain supported.
 
 Bring already-dequantized weights from your quantizer, or combine them with RoundoffLab simulations. Pick using **discovery** inputs; inspect the fixed candidate on separately supplied **validation** inputs. The report keeps its selection fixed while switching cohort views. No checkpoint loading or model conversion is added.
 

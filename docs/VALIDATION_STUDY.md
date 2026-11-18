@@ -46,4 +46,4 @@ Browser acceptance: complete cohort switch consistency, fixed selection, full JS
 
 ## Compatibility and release status
 
-This is the 0.2.0a1 alpha contract. Schema-1 analyses remain supported; validation studies use explicit schema version 2. The stable v0.1 hosted example does not imply this alpha has been published. No model-quality, deployment-performance or external-adoption result is claimed.
+This is the 0.2.0a1 alpha contract. Schema-1 analyses remain supported; validation studies use explicit schema version 2. The hosted example remains the v0.1 demo and does not demonstrate this alpha. No model-quality, deployment-performance or external-adoption result is claimed.
