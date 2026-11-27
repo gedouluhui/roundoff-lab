@@ -78,3 +78,34 @@ python -m unittest discover -s tests -v
 测试包含手算舍入、独立标量参考、尾组、零阈值、各向同性输入对照、真实 CLI 往返、覆盖保护与脚本注入字符串。跨平台状态请看真实 CI 回执；测试通过不等于任意模型正确性或真实用户效果已经验证。
 
 欢迎提交能公开的小矩阵反例、清晰的错误提示改进及带独立参考的新策略。请勿在 Issue 上传私有权重、敏感输入或密钥。项目使用 MIT 许可证，开发过程有 AI 辅助。
+
+## 快速开始与支持状态
+
+### 问题
+在提供的矩阵上同时按权重误差和观测/传播输出误差比较仅权重量化策略。
+
+### 安装
+```sh
+python -m pip install .
+```
+
+### 成功命令
+```sh
+python -m roundofflab demo --out demo-quiet
+```
+预期：合成 quiet-outlier 分析写出确定性离线报告；退出码 0。
+
+### 故意失败命令
+```sh
+python -m roundofflab analyze --weights missing.npy --inputs missing.npy --out invalid-report
+```
+预期：缺失矩阵被拒绝，退出码 2，且不发布报告。
+
+### 证据与覆盖边界
+证据包括手算平局、独立标量量化 oracle、零/尾组、独立输出算术、各向同性排序对照、真实 CLI 往返、覆盖保护和惰性注入字符串，以及命名变异。测量是单层 float64 诊断，不是部署 kernel 或模型准确率结果。
+
+### 支持状态
+版本 0.2.0a1 是 alpha，支持 Python 3.10+ 和 NumPy。文档使用 GitHub Release 资产；这不是 PyPI 安装说明。维护为尽力而为，不提供 SLA。
+
+### 限制
+该工具不加载检查点、不转换模型、不量化激活、不支持非对称零点或 GPTQ/AWQ、不测量 GPU kernel，也不评估任务准确率。元素保护不是峰值 RSS 或运行时保证，BLAS/平台差异可能影响最终位。

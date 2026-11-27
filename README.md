@@ -178,3 +178,34 @@ Tests include hand-calculated ties, a separate scalar quantization oracle, zero 
 Please report a minimal W/X reproduction, policy configuration, package/NumPy versions, expected result and actual result. Do not attach private model weights or sensitive inputs. Small numerical counterexamples and clearer diagnostics are especially welcome; new quantization families should come with an explicit contract and independent reference.
 
 MIT licensed. Developed with AI assistance; numerical definitions, tests and limitations are open for inspection. No external-user adoption or model-quality improvement is claimed.
+
+## Quickstart and support
+
+### Problem
+Compare weight-only quantization policies by both weight error and observed/propagated output error on supplied matrices.
+
+### Install
+```sh
+python -m pip install .
+```
+
+### Success
+```sh
+python -m roundofflab demo --out demo-quiet
+```
+Expected: The synthetic quiet-outlier analysis writes a deterministic offline report; exit 0.
+
+### Deliberate failure
+```sh
+python -m roundofflab analyze --weights missing.npy --inputs missing.npy --out invalid-report
+```
+Expected: The missing matrices are rejected with exit 2 and no report is published.
+
+### Evidence and coverage boundaries
+Evidence includes hand-calculated ties, a separate scalar quantization oracle, zero/tail groups, independent output arithmetic, isotropic ranking controls, real CLI round trips, overwrite protection, inert injection strings, and named mutations. Measurements are single-layer float64 diagnostics, not deployment-kernel or model-accuracy results.
+
+### Support status
+Version 0.2.0a1 is an alpha supporting Python 3.10+ and NumPy. GitHub release assets are documented; this is not a PyPI installation instruction. Maintenance is best-effort with no SLA.
+
+### Limitations
+The tool does not load checkpoints, convert models, quantize activations, implement asymmetric zero points or GPTQ/AWQ, measure GPU kernels, or evaluate task accuracy. Element guards are not peak-RSS or runtime guarantees, and BLAS/platform differences can affect final bits.
