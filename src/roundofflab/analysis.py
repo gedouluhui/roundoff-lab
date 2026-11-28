@@ -82,7 +82,8 @@ def analyze(weights: np.ndarray, inputs: np.ndarray, configs=None, *,
     configs = default_configs() if configs is None else list(configs)
     if not 1 <= len(configs) <= 24 or any(not isinstance(c, Config) for c in configs):
         raise ValueError("supply between 1 and 24 Config objects")
-    if len({c.id for c in configs}) != len(configs):
+    config_ids = [config.id for config in configs]
+    if len(set(config_ids)) != len(config_ids):
         raise ValueError("configuration IDs must be unique")
     provenance = {"weight_sha256": fingerprint(weights), "input_sha256": fingerprint(inputs),
                   "numpy_version": np.__version__, "numerical_policy": POLICY}
@@ -95,7 +96,7 @@ def analyze(weights: np.ndarray, inputs: np.ndarray, configs=None, *,
                 raise ValueError("reference output is nonfinite; rescale your matrices")
             reference_rms = float(_rms(reference))
             channel_rms = _rms(reference, axis=0)
-            for config in configs:
+            for config, config_id in zip(configs, config_ids):
                 quantized = quantize(w, config)
                 dw = quantized.weights - w
                 output = x @ quantized.weights.T
@@ -104,7 +105,7 @@ def analyze(weights: np.ndarray, inputs: np.ndarray, configs=None, *,
                 relative = float(_rms(dy)) / reference_rms if reference_rms else None
                 channel_w, channel_y = _mse(dw, axis=1), _mse(dy, axis=0)
                 entries.append({
-                    "id": config.id, "bits": config.bits, "mode": config.mode,
+                    "id": config_id, "bits": config.bits, "mode": config.mode,
                     "group_size": config.group_size if config.mode == "group" else None,
                     "percentile": float(config.percentile),
                     "metrics": {"weight_mse": weight_mse, "weight_max_abs_error": float(np.max(np.abs(dw))),

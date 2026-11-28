@@ -26,6 +26,11 @@ class Config:
             raise ValueError("percentile must be a finite number in (0, 100]")
         if not math.isfinite(self.percentile) or not 0 < self.percentile <= 100:
             raise ValueError("percentile must be a finite number in (0, 100]")
+        # Quantization evaluates percentiles in float64; use that same value for identity.
+        percentile = float(self.percentile)
+        if not math.isfinite(percentile) or not 0 < percentile <= 100:
+            raise ValueError("percentile must be a finite number in (0, 100]")
+        object.__setattr__(self, "percentile", percentile)
 
     @property
     def id(self) -> str:
@@ -33,7 +38,11 @@ class Config:
         if self.mode == "group":
             value += f"-g{self.group_size}"
         if self.percentile != 100:
-            value += f"-p{self.percentile:g}"
+            percentile = float(self.percentile)
+            legacy = f"{percentile:g}"
+            # Keep released IDs when :g round-trips; otherwise encode every bit.
+            encoded = legacy if float(legacy) == percentile else percentile.hex()
+            value += f"-p{encoded}"
         return value
 
 

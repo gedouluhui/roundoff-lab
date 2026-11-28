@@ -33,7 +33,7 @@ Default aggregate input limit: 4,000,000 elements across W and X. Default output
 
 `analyze(weights, inputs, configs=None, *, title="RoundoffLab report", sample_label="user-provided", max_elements=4_000_000, max_output_elements=4_000_000) -> dict`.
 
-`default_configs() -> list[Config]`: 4-bit tensor, 4-bit channel, 4-bit group32, 8-bit channel, 4-bit channel p99, 4-bit channel p95. ID: `int{bits}-{mode}` plus `-g{group_size}` for group and `-p{percentile:g}` for p != 100.
+`default_configs() -> list[Config]`: 4-bit tensor, 4-bit channel, 4-bit group32, 8-bit channel, 4-bit channel p99, 4-bit channel p95. ID: `int{bits}-{mode}` plus `-g{group_size}` for group and `-p{percentile}` for p != 100. Percentiles are normalized to float64. The historical `:g` spelling is retained only when it round-trips exactly; otherwise `float.hex()` encodes the value losslessly. Thus released IDs such as `int4-channel-p99`, `int4-channel-p95`, and `int4-channel-p75` remain unchanged, while close values such as 99.1234567 and 99.1234568 cannot collide.
 
 `make_demo(seed=7, scenario="quiet-outlier") -> (W, X)`. Scenarios quiet-outlier and active-outlier use identical synthetic W, with different excitation of its outlier input channel. Use deterministic RNG; demonstrate rather than assume at least one ranking reversal in quiet-outlier.
 
